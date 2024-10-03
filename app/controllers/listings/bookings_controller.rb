@@ -2,11 +2,13 @@ module Listings
   class BookingsController < ApplicationController
     before_action :authenticate_user!
     before_action :set_listing
-    before_action :set_booking, only: ["payment", "success", "stripe_session"]
+    before_action :set_booking, only: [:payment, :success, :stripe_session]
+
     def new
       @booking = @listing.bookings.new
     end
-    def create 
+
+    def create
       @booking = @listing.bookings.new(bookings_params)
       @booking.user = current_user
       if @booking.save
@@ -21,7 +23,7 @@ module Listings
     def success; end
 
     def stripe_session
-      unit_amount = (@listing.day_price * 100) * @booking.amount_of_days
+      unit_amount = calculate_unit_amount
       checkout_session = Stripe::Checkout::Session.create({
         mode: 'payment',
         line_items: [
@@ -38,7 +40,7 @@ module Listings
         ],
         payment_intent_data: {
           application_fee_amount: (unit_amount * 0.30).to_i,
-          transfer_data: {destination: @listing.user.stripe_account_id},
+          transfer_data: { destination: @listing.user.stripe_account_id },
         },
         metadata: {
           booking_id: @booking.id
@@ -63,6 +65,10 @@ module Listings
 
     def bookings_params
       params.require(:booking).permit(:checkin_date, :checkout_date)
+    end
+
+    def calculate_unit_amount
+      (@listing.day_price * 100) * @booking.amount_of_days
     end
   end
 end
